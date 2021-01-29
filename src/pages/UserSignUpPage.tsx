@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, {useEffect, useState} from "react";
 import {TextField} from "../components/TextField";
 import logo from "../logo.svg";
 import {signUp, User} from "../api/apiCalls";
+import axios from "axios";
+import {ButtonWithProgress} from "../components/ButtonWithProgress";
 
 interface Error {
     name: string;
@@ -22,6 +24,27 @@ const UserSignUpPage = (): JSX.Element => {
     const [pendingApiCall, setPendingApiCall] = useState(false);
     const [isAnyError, setIsAnyError] = useState(false);
     const [errors, setErrors] = useState({} as Error);
+    const buttonDisabled = pendingApiCall || isAnyError || name === "" || surname === "" || username === "" ||
+        email === "" || password === ""|| passwordAgain === "";
+
+    useEffect(() => {
+        axios.interceptors.request.use(
+            request => {
+                setPendingApiCall(true);
+                return request;
+            });
+
+        axios.interceptors.response.use(
+            response => {
+                setPendingApiCall(false);
+                return response;
+            },
+            error => {
+                setPendingApiCall(false);
+                throw error;
+            }
+        );
+    })
 
     const clearScreen = (event: React.MouseEvent<HTMLElement>) => {
         event.preventDefault();
@@ -31,13 +54,12 @@ const UserSignUpPage = (): JSX.Element => {
         setEmail("");
         setPassword("");
         setPasswordAgain("");
+        setErrors({} as Error);
     }
 
     const handleChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
         const {value, name} = e.target;
-
         const errorsCopy = {...errors};
-
         const errorKey: keyof Error = name as keyof Error;
 
         errorsCopy[errorKey] = '';
@@ -59,8 +81,6 @@ const UserSignUpPage = (): JSX.Element => {
     const onSubmit = async (event: React.MouseEvent<HTMLElement>) => {
         event.preventDefault();
 
-        setPendingApiCall(true);
-
         let user: User = {
             name,
             surname,
@@ -72,26 +92,22 @@ const UserSignUpPage = (): JSX.Element => {
         try {
             await signUp(user);
         } catch (error) {
-            if (error.response.data.validationErrors) {
-                setErrors(error.response.data.validationErrors);
-            }
+            setErrors(error.response.data.validationErrors);
+            setIsAnyError(true);
         }
-        setPendingApiCall(false);
     }
 
     const getIsAnyError = (errors: Error) => {
 
+        //copy errors into errorArray
         const errorArray: Array<string> = Object.values(errors).map(value => {
-            return value
+            return value;
         });
 
-        let tmp = false;
-        errorArray.forEach((value: Object) => {
-            if(value !== '') {
-                tmp = true;
-            }
-        });
-        setIsAnyError(tmp);
+        //if any element of errorArray has value setIsAnyError true
+        setIsAnyError(errorArray.some((element: string) => {
+            return element !== '';
+        }));
     }
 
     return (
@@ -160,16 +176,12 @@ const UserSignUpPage = (): JSX.Element => {
                     Clear
                 </button>
 
-
-                <button
-                    className="btn btn-lg btn-primary btn-block text-center"
-                    type="submit"
+                <ButtonWithProgress
+                    disabled={buttonDisabled}
+                    label={"Sign Up"}
                     onClick={onSubmit}
-                    disabled={pendingApiCall || isAnyError}
-                >
-                    Sign Up
-                    {pendingApiCall && <span className="spinner-grow spinner-grow-sm"></span>}
-                </button>
+                    pendingApiCall={pendingApiCall}
+                />
 
             </form>
         </div>

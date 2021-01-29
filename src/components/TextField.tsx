@@ -1,7 +1,7 @@
 import React from "react";
 
 interface Prop {
-    name?: string
+    name?: string;
     type?: string;
     className?: string;
     label: string;
